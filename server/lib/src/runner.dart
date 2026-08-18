@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:appium_flutter_server/src/driver.dart';
 import 'package:appium_flutter_server/src/appium_test_bindings.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:appium_flutter_server/src/server.dart';
@@ -10,11 +11,17 @@ import 'package:package_info_plus/package_info_plus.dart';
 const MAX_TEST_DURATION_SECS = 24 * 60 * 60;
 // Need a better way to fetch this for automated release, this needs to be updated along with version bump
 // Can stay for now as it is not a breaking change
-const serverVersion = '0.0.34';
+const serverVersion = '0.0.35';
+
+SemanticsHandle? _semanticsHandle;
 
 Future<void> initializeTest({Widget? app, Function? callback}) async {
   IntegrationTestWidgetsFlutterBinding binding =
   AppiumTestWidgetsFlutterBinding.ensureInitialized();
+
+  // Flutter builds a semantics tree only while a handle is held. The server owns it so an app needs
+  // no change of its own, and releasing it would drop the identifiers the recorder reads.
+  _semanticsHandle ??= SemanticsBinding.instance.ensureSemantics();
 
   if (app == null && callback == null) {
     throw Exception("App and callback cannot be null");

@@ -1,4 +1,5 @@
 import 'package:appium_flutter_server/src/internal/widget_predicates.dart';
+import 'package:appium_flutter_server/src/internal/semantics_finder.dart';
 import 'package:appium_flutter_server/src/models/api/find_element.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,8 +34,7 @@ extension ElementLookupStrategyExtension on ElementLookupStrategy {
       case ElementLookupStrategy.BY_KEY:
         return find.byKey(Key(model.selectorString!), skipOffstage: false);
       case ElementLookupStrategy.BY_SEMANTICS_LABEL:
-        return find.bySemanticsLabel(model.selectorString!,
-            skipOffstage: false);
+        return LiveSemanticsFinder.byLabel(model.selectorString!);
       case ElementLookupStrategy.BY_TOOLTIP:
         return find.byTooltip(model.selectorString!, skipOffstage: false);
       case ElementLookupStrategy.BY_TEXT:

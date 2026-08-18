@@ -18,6 +18,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
+/// The overlay's private wrapper around one entry, the only place a disabled ticker means the
+/// subtree is covered rather than merely paused.
+const String _overlayEntryWidget = '_OverlayEntryWidget';
+
 enum NATIVE_ELEMENT_ATTRIBUTES { enabled, displayed, clickable }
 
 typedef WaitPredicate = Future<bool> Function();
@@ -80,28 +84,64 @@ class ElementHelper {
     return elementList;
   }
 
+  /// Whether the element covers part of the screen. Read from the render object rather than through
+  /// a finder: a finder skips what is offstage, and asking one for the rect of an element it will
+  /// not hand back throws and takes the whole lookup down with it.
   static bool isVisibleOnAppScreen(Element finderElement) {
-    if (finderElement.renderObject is! RenderBox) {
+    final renderObject = finderElement.renderObject;
+    if (renderObject is! RenderBox) {
       return true;
     }
-    final WidgetTester tester = _getTester();
-    final widgetRect =
-        tester.getRect(find.byElementPredicate((e) => e == finderElement));
-
-    final allWidgets = tester.allWidgets.toList();
-
-    for (final widget in allWidgets) {
-      final elements = find.byWidget(widget).evaluate();
-      for (final element in elements) {
-        if (element.renderObject is RenderBox) {
-          final rootRect = tester.getRect(
-            find.byElementPredicate((e) => e == element),
-          );
-          return widgetRect.overlaps(rootRect);
-        }
-      }
+    if (!renderObject.attached || !renderObject.hasSize) {
+      return false;
     }
-    return false;
+    if (_isInHiddenSubtree(finderElement)) {
+      return false;
+    }
+    final rect = MatrixUtils.transformRect(
+      renderObject.getTransformTo(null),
+      Offset.zero & renderObject.size,
+    );
+    final view = _getTester().view;
+    final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+    return rect.overlaps(screen);
+  }
+
+  /// Whether something above this element hides it: the unselected tab of an [IndexedStack], or a
+  /// route an opaque route was pushed over. Both stay laid out where the user is looking, so a
+  /// finder matches them and an index based lookup picks the wrong one.
+  static bool _isInHiddenSubtree(Element element) {
+    bool hidden = false;
+    bool tickersOff = false;
+    element.visitAncestorElements((ancestor) {
+      final widget = ancestor.widget;
+      if (tickersOff) {
+        // Only on an overlay entry does a disabled ticker mean covered. An app may pause the
+        // animations of a widget the user is still looking at.
+        hidden = widget.runtimeType.toString() == _overlayEntryWidget;
+        if (hidden) {
+          return false;
+        }
+        tickersOff = false;
+      }
+      if (_hidesItsChild(widget)) {
+        hidden = true;
+        return false;
+      }
+      tickersOff = widget is TickerMode && !widget.enabled;
+      return true;
+    });
+    return hidden;
+  }
+
+  static bool _hidesItsChild(Widget widget) {
+    if (widget is Visibility) {
+      return !widget.visible;
+    }
+    if (widget is Offstage) {
+      return widget.offstage;
+    }
+    return widget is Opacity && widget.opacity == 0;
   }
 
   static Future<void> click(FlutterElement element) async {
@@ -226,7 +266,13 @@ class ElementHelper {
       }else if (widget is TextFormField) {
       buffer.write(widget.controller?.text ?? '');
       }else if (widget is ButtonStyleButton) {
-        buffer.write(getElementTextRecursively(widget.child, visited: visited));
+        // The child Element, not widget.child: this function reads element.widget, and a Widget has
+        // no such member. Passing one threw NoSuchMethodError and the caller's catch swallowed it
+        // together with the button's whole label. A button element is not a RenderObjectElement, so
+        // the walk below never reaches its children either.
+        element.visitChildren((child) {
+          buffer.write(getElementTextRecursively(child, visited: visited));
+        });
       }
 
       if (element is RenderObjectElement) {
@@ -373,14 +419,18 @@ class ElementHelper {
     String attribute = NATIVE_ELEMENT_ATTRIBUTES.enabled.name;
     DiagnosticsNode? enabledProperty =
         _getElementPropertyNode(element.by, attribute);
-    if (enabledProperty == null) {
-      //For Button type elements, onPressed will be null if the element is disabled
-      DiagnosticsNode? onPressed =
-          _getElementPropertyNode(element.by, "onPressed");
-      return (onPressed == null || onPressed.value == null) ? "false" : "true";
-    } else {
+    if (enabledProperty != null) {
       return enabledProperty.value.toString();
     }
+    // A button reports itself disabled by carrying a null callback. A widget that has no such
+    // property at all, a GestureDetector or an Icon, is not disabled: calling it so makes every
+    // step pointing at one fail to resolve.
+    DiagnosticsNode? onPressed =
+        _getElementPropertyNode(element.by, "onPressed");
+    if (onPressed == null) {
+      return "true";
+    }
+    return onPressed.value == null ? "false" : "true";
   }
 
   static bool _isElementClickable(FlutterElement flutterElement) {

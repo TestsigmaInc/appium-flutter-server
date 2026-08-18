@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:appium_flutter_server/src/exceptions/element_not_found_exception.dart';
 import 'package:appium_flutter_server/src/internal/flutter_element.dart';
+import 'package:appium_flutter_server/src/internal/semantics_finder.dart';
 import 'package:appium_flutter_server/src/internal/widget_predicates.dart';
 import 'package:appium_flutter_server/src/logger.dart';
 import 'package:flutter/foundation.dart';
@@ -77,7 +78,7 @@ class FlutterFinderStrategy {
 
   static Finder? _bySemanticsLabel(Map<String, dynamic> strategy) {
     if (strategy['label'] != null) {
-      return find.bySemanticsLabel(strategy['label']);
+      return LiveSemanticsFinder.byLabel(strategy['label']);
     }
     return null;
   }
