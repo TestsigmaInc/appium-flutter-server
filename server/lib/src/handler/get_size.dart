@@ -22,9 +22,10 @@ class GetSizeHandler extends RequestHandler {
         .get(elementId);
 
     Size size = ElementHelper.getElementSize(element.by);
+    // Numbers for the same reason as the element rect: a W3C client casts these.
     return AppiumResponse(sessionId, {
-      "height": size.height.toStringAsFixed(0),
-      "width": size.width.toStringAsFixed(0)
+      "height": size.height.round(),
+      "width": size.width.round()
     });
   }
 }

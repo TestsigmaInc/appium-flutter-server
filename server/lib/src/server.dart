@@ -13,6 +13,7 @@ import 'package:appium_flutter_server/src/handler/get_attribute.dart';
 import 'package:appium_flutter_server/src/handler/get_name.dart';
 import 'package:appium_flutter_server/src/handler/get_rect.dart';
 import 'package:appium_flutter_server/src/handler/render_tree.dart';
+import 'package:appium_flutter_server/src/handler/render_tree_culled.dart';
 import 'package:appium_flutter_server/src/handler/get_size.dart';
 import 'package:appium_flutter_server/src/handler/get_text.dart';
 import 'package:appium_flutter_server/src/handler/new_session.dart';
@@ -75,6 +76,8 @@ class FlutterServer {
     _registerPost(FindElementsHandler("/session/<sessionId>/elements"));
     _registerPost(
         RenderTreeHandler("/session/<sessionId>/element/render_tree"));
+    _registerPost(RenderTreeCulledHandler(
+        "/session/<sessionId>/element/render_tree_culled"));
     _registerPost(ClickHandler("/session/<sessionId>/element/<id>/click"));
     _registerPost(
         DoubleClickHandler("/session/<sessionId>/element/<id>/double_click"));
