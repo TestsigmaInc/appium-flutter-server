@@ -68,6 +68,19 @@ void main() {
     expect(locked.enabled, isFalse);
   });
 
+  testWidgets('does not read the value of a password field', (tester) async {
+    await tester.pumpWidget(page(const TextField(
+        obscureText: true, decoration: InputDecoration(labelText: "Password"))));
+    await tester.enterText(find.byType(TextField), "secret");
+
+    final pageSource = readPageSource(tester);
+    final input = nodeWithType(pageSource, "EditableText")!;
+    expect(input.inputValue, isNull);
+    expect(input.editable, isTrue);
+    expect(pageSource.nodes.where((node) => node.inputValue == "secret"),
+        isEmpty);
+  });
+
   testWidgets('reads enabled and checked state', (tester) async {
     await tester.pumpWidget(page(Column(children: [
       const ElevatedButton(

@@ -38,6 +38,6 @@ Future<void> initializeTest({Widget? app, Function? callback}) async {
 
     // To block the test from ending
     await Completer<void>().future;
-  }, timeout: Timeout.none); // ----- TESTSIGMA CHANGES -----
+  }, timeout: const Timeout(Duration(seconds: MAX_TEST_DURATION_SECS)));
   return;
 }

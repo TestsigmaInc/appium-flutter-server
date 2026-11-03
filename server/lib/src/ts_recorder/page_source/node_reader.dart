@@ -17,7 +17,8 @@ class NodeReader {
       node.text ??= widget.data ?? widget.textSpan?.toPlainText();
     } else if (widget is EditableText) {
       // Show the typed value only. Typing changes it, so it is not a locator.
-      node.inputValue ??= widget.controller.text;
+      // Never send the value of a password field.
+      if (!widget.obscureText) node.inputValue ??= widget.controller.text;
       node.focusable = true;
       node.focused = widget.focusNode.hasFocus;
     } else if (widget is Tooltip) {
