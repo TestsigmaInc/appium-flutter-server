@@ -25,6 +25,10 @@ import 'package:appium_flutter_server/src/handler/status.dart';
 import 'package:appium_flutter_server/src/handler/wait/wait_for_absent.dart';
 import 'package:appium_flutter_server/src/handler/wait/wait_for_visible.dart';
 import 'package:appium_flutter_server/src/logger.dart';
+// ----- TESTSIGMA CHANGES START -----
+import 'package:appium_flutter_server/src/ts_recorder/about/about_handler.dart';
+import 'package:appium_flutter_server/src/ts_recorder/page_source/page_source_handler.dart';
+// ----- TESTSIGMA CHANGES END -----
 import 'package:shelf_plus/shelf_plus.dart' as shelf_plus;
 import 'package:device_info_plus/device_info_plus.dart';
 
@@ -100,6 +104,12 @@ class FlutterServer {
 
     //DELETE ROUTES
     _registerDelete(DeleteSessionHandler("/session/<sessionId>"));
+
+    // ----- TESTSIGMA CHANGES START -----
+    _registerGet(AboutHandler("/ts/recorder/about"));
+    _registerGet(
+        PageSourceHandler("/session/<sessionId>/ts/recorder/page_source"));
+    // ----- TESTSIGMA CHANGES END -----
   }
 
   void _registerGet(RequestHandler handler) {
