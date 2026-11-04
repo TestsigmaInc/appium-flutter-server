@@ -17,7 +17,7 @@ dev_dependencies:
     git:
       url: https://github.com/TestsigmaInc/appium-flutter-server
       path: server
-      ref: v0.0.34-ts.1        # always a tag, never a branch
+      ref: v0.0.35+ts.1        # always a tag, never a branch
 ```
 
 ---
@@ -34,7 +34,7 @@ Both routes use the normal server response: `{ "sessionId": ..., "value": ... }`
 ### 2.1 `GET /ts/recorder/about`
 
 ```json
-{ "recorderApi": 1, "serverVersion": "0.0.34-ts.1", "sessionId": "e1c2…", "platform": "android" }
+{ "recorderApi": 2, "serverVersion": "0.0.35+ts.1", "sessionId": "e1c2…", "platform": "android" }
 ```
 
 - `sessionId` is `null` when there is no active session.
@@ -54,6 +54,7 @@ curl -s http://localhost:9000/session/<sessionId>/ts/recorder/page_source
 | Query | Default | Meaning |
 |---|---|---|
 | `maxNodes` | `600` | Stop after this many nodes, and set `truncated: true` |
+| `ifNoneMatch` | none | The `hash` that the client already has. When the screen has the same hash, the answer is only `{ "unchanged": true, "hash": "…" }`. |
 
 ```json
 {
@@ -85,6 +86,28 @@ curl -s http://localhost:9000/session/<sessionId>/ts/recorder/page_source
 | `truncated` | `true` when the walk stopped at `maxNodes`. The list is not complete. |
 | `hasPlatformViews` | `true` when the screen has a native view (map, web view). The walk cannot see inside it. |
 | `screen` | Screen size, safe area and keyboard height, in logical pixels |
+
+---
+
+### 2.3 The render_tree tunnel (cloud labs)
+
+A cloud lab (BrowserStack, Sauce Labs) installs the **stock** Flutter driver. That driver forwards only its own commands to the app, so a remote client cannot reach the two routes above. The same two answers are also sent through the stock `flutter: renderTree` command:
+
+```js
+driver.execute("flutter: renderTree", {
+  widgetType: "__ts_recorder__",
+  text: JSON.stringify({ v: 1, op: "page_source", maxNodes: 600, ifNoneMatch: "9f3a61c2" }),
+});
+```
+
+| `op` | Answer |
+|---|---|
+| `about` | The same body as `GET /ts/recorder/about` |
+| `page_source` | The same body as `GET /session/:sessionId/ts/recorder/page_source`. `maxNodes` and `ifNoneMatch` are read from the request. |
+
+- `__ts_recorder__` is a reserved widget type. Any other `widgetType` gives the normal render tree.
+- A stock server, or this server before `recorderApi: 2`, finds no widget of that type and answers `[]`. A client reads `[]` as "no tunnel".
+- The driver adds the session id to the route itself. The existing session check runs.
 
 ---
 
@@ -158,8 +181,13 @@ server/lib/src/ts_recorder/
     node_reader.dart             Reads key, text, icon, state from a widget
     visibility.dart              Rules for what the user cannot see
     screen.dart                  Screen size, pixel ratio, safe area
+  tunnel/
+    tunnel.dart                  The recorder answers inside the stock render_tree command
 
 server/test/ts_recorder/         Widget tests. Run: cd server && flutter test test/ts_recorder
 ```
 
-The only change to existing server code is in `server.dart`: two imports, and two `_registerGet(...)` lines at the end of `_registerRoutes()`.
+Changes to existing server code, all inside `TESTSIGMA CHANGES` markers:
+
+- `server.dart`: two imports, and two `_registerGet(...)` lines at the end of `_registerRoutes()`.
+- `handler/render_tree.dart`: one import, and one `if` that sends the reserved `widgetType` to the tunnel.

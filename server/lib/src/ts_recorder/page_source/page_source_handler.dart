@@ -14,26 +14,45 @@ class PageSourceHandler extends RequestHandler {
 
   @override
   Future<AppiumResponse> handle(Request request) async {
-    final String sessionId = getSessionId(request);
-    final int maxNodes = _readMaxNodes(request);
-
-    await ElementHelper.pumpAndTrySettle();
-    final WidgetTester tester = FlutterDriver.instance.tester;
-    
-    // A frame is still scheduled when an animation did not stop.
-    final bool settled = !tester.binding.hasScheduledFrame;
-
-    final PageSource pageSource =
-        TreeWalker(screen: Screen.fromView(tester.view), maxNodes: maxNodes)
-            .walk(tester.binding.rootElement!);
-    return AppiumResponse(sessionId, pageSource.toJson(settled: settled));
+    final Map<String, String> query = request.url.queryParameters;
+    return AppiumResponse(
+        getSessionId(request),
+        await readPageSourceBody(
+            maxNodes: readMaxNodes(query["maxNodes"]),
+            ifNoneMatch: query["ifNoneMatch"]));
   }
+}
 
-  int _readMaxNodes(Request request) {
-    final int? value =
-        int.tryParse(request.url.queryParameters["maxNodes"] ?? "");
-    if (value == null || value < 1) return TreeWalker.defaultMaxNodes;
-    return value;
+// Read the screen. The HTTP route and the render_tree tunnel send the same body.
+Future<Map<String, dynamic>> readPageSourceBody(
+    {required int maxNodes, String? ifNoneMatch}) async {
+  await ElementHelper.pumpAndTrySettle();
+  final WidgetTester tester = FlutterDriver.instance.tester;
+
+  // A frame is still scheduled when an animation did not stop.
+  final bool settled = !tester.binding.hasScheduledFrame;
+
+  final PageSource pageSource =
+      TreeWalker(screen: Screen.fromView(tester.view), maxNodes: maxNodes)
+          .walk(tester.binding.rootElement!);
+  return pageSourceBody(pageSource,
+      settled: settled, ifNoneMatch: ifNoneMatch);
+}
+
+// Send only the hash when the client already has this screen. A cloud lab then sends less data.
+Map<String, dynamic> pageSourceBody(PageSource pageSource,
+    {required bool settled, String? ifNoneMatch}) {
+  final Map<String, dynamic> json = pageSource.toJson(settled: settled);
+  if (ifNoneMatch != null && json["hash"] == ifNoneMatch) {
+    return {"unchanged": true, "hash": ifNoneMatch};
   }
+  return json;
+}
+
+// Use the default when the value is missing or not a positive number.
+int readMaxNodes(Object? value) {
+  final int? parsed = value is int ? value : int.tryParse("${value ?? ""}");
+  if (parsed == null || parsed < 1) return TreeWalker.defaultMaxNodes;
+  return parsed;
 }
 // ----- TESTSIGMA CHANGES END -----

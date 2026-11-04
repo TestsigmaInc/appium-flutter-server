@@ -8,7 +8,16 @@ import 'package:flutter/foundation.dart';
 import 'package:shelf/shelf.dart';
 
 // Increase this value only when the recorder response shape changes.
-const recorderApiVersion = 1;
+// 2: the render_tree tunnel and ifNoneMatch.
+const recorderApiVersion = 2;
+
+// The about body. The HTTP route and the render_tree tunnel send the same body.
+Map<String, dynamic> aboutBody() => {
+      "recorderApi": recorderApiVersion,
+      "serverVersion": FlutterDriver.instance.serverVersion,
+      "sessionId": FlutterDriver.instance.getSession()?.sessionId,
+      "platform": defaultTargetPlatform.name.toLowerCase(),
+    };
 
 // Tell the client that this app has the Testsigma recorder, and which version.
 class AboutHandler extends RequestHandler implements NoSessionCommandHandler {
@@ -17,12 +26,7 @@ class AboutHandler extends RequestHandler implements NoSessionCommandHandler {
   @override
   Future<AppiumResponse> handle(Request request) async {
     String? sessionId = FlutterDriver.instance.getSession()?.sessionId;
-    return AppiumResponse(sessionId ?? Session.NO_ID, {
-      "recorderApi": recorderApiVersion,
-      "serverVersion": FlutterDriver.instance.serverVersion,
-      "sessionId": sessionId,
-      "platform": defaultTargetPlatform.name.toLowerCase(),
-    });
+    return AppiumResponse(sessionId ?? Session.NO_ID, aboutBody());
   }
 }
 // ----- TESTSIGMA CHANGES END -----
