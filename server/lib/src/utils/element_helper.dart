@@ -85,8 +85,17 @@ class ElementHelper {
       return true;
     }
     final WidgetTester tester = _getTester();
-    final widgetRect =
-        tester.getRect(find.byElementPredicate((e) => e == finderElement));
+    // ----- TESTSIGMA CHANGES START -----
+    // An offstage match (a DropdownButton keeps every item offstage) cannot be measured. Before, its throw
+    // failed the whole find, so no dropdown item could be found by text.
+    final Rect widgetRect;
+    try {
+      widgetRect =
+          tester.getRect(find.byElementPredicate((e) => e == finderElement));
+    } on FlutterError {
+      return false;
+    }
+    // ----- TESTSIGMA CHANGES END -----
 
     final allWidgets = tester.allWidgets.toList();
 
